@@ -10,7 +10,7 @@ export function DoneTray() {
 
   return (
     <section
-      className="panel done"
+      className={`panel done ${focus === "done" ? "is-solo" : ""}`}
       data-panel="done"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
@@ -25,7 +25,7 @@ export function DoneTray() {
         </div>
         <button
           className="icon-btn"
-          title="Развернуть окно"
+          title="На весь экран"
           onClick={() => setFocus(focus === "done" ? "all" : "done")}
         >
           <ExpandIcon />

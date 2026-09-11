@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ExpandIcon } from "./chrome";
-import { dayHasImportant, dayHasOpen, monthHasImportant, useStore } from "./store";
+import { dayHasImportant, dayShowsMark, monthHasImportant, useStore } from "./store";
 import { TaskEditor } from "./TaskEditor";
 import type { Draft, PlannerView } from "./types";
 import {
@@ -35,6 +35,8 @@ export function Planner() {
     deleteTask,
     focus,
     setFocus,
+    mutedDays,
+    muteDay,
   } = useStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const cursor = parseISO(plannerCursor);
@@ -63,7 +65,7 @@ export function Planner() {
     tasks.filter((t) => t.date === date && t.status === "planned");
 
   return (
-    <section className="panel planner" data-panel="planner">
+    <section className={`panel planner ${focus === "planner" ? "is-solo" : ""}`} data-panel="planner">
       <header className="panel-head">
         <div>
           <p className="kicker">план</p>
@@ -96,7 +98,7 @@ export function Planner() {
           </label>
           <button
             className="icon-btn"
-            title="Развернуть окно"
+            title="На весь экран"
             onClick={() => setFocus(focus === "planner" ? "all" : "planner")}
           >
             <ExpandIcon />
@@ -109,7 +111,7 @@ export function Planner() {
           {days.map((d, i) => (
             <div
               key={d}
-              className={`plan-day ${dayHasOpen(tasks, d) ? "open" : ""} ${dayHasImportant(tasks, d) ? "marked" : ""}`}
+              className={`plan-day ${dayShowsMark(tasks, d, mutedDays) ? "open" : ""} ${dayHasImportant(tasks, d) ? "marked" : ""}`}
               onClick={() =>
                 setDraft({
                   title: "",
@@ -119,6 +121,10 @@ export function Planner() {
                   important: false,
                 })
               }
+              onContextMenu={(e) => {
+                e.preventDefault();
+                muteDay(d);
+              }}
             >
               <div className="plan-day-head">
                 <span>{WEEKDAYS[i]}</span>
@@ -170,7 +176,7 @@ export function Planner() {
                   className={[
                     "month-cell",
                     inMonth ? "" : "dim",
-                    dayHasOpen(tasks, key) ? "open" : "",
+                    dayShowsMark(tasks, key, mutedDays) ? "open" : "",
                     dayHasImportant(tasks, key) ? "marked" : "",
                   ].join(" ")}
                   onClick={() => {
@@ -182,6 +188,10 @@ export function Planner() {
                       status: "planned",
                       important: false,
                     });
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    muteDay(key);
                   }}
                 >
                   <span>{d.getDate()}</span>

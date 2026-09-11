@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { ExpandIcon } from "./chrome";
-import { dayHasOpen, useStore } from "./store";
+import { dayShowsMark, useStore } from "./store";
 import { TaskEditor } from "./TaskEditor";
 import type { Draft, Task } from "./types";
 import { HOUR_H } from "./types";
 import {
-  MONTHS,
   WEEKDAYS,
-  iso,
   minutesToLabel,
-  monthCells,
   nowMinutes,
   parseISO,
   prettyDate,
@@ -70,6 +67,44 @@ function TaskCard({
   );
 }
 
+function DateChip() {
+  const { selectedDate, setSelectedDate, tasks, mutedDays, muteDay } = useStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const today = todayISO();
+  const marked = dayShowsMark(tasks, selectedDate, mutedDays);
+
+  const openPicker = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === "function") el.showPicker();
+    else el.click();
+  };
+
+  return (
+    <div className="date-chip">
+      <input
+        ref={inputRef}
+        type="date"
+        value={selectedDate}
+        onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+        aria-label="Календарь"
+      />
+      <button
+        type="button"
+        className={`date-sq mini ${selectedDate === today ? "today" : ""} ${marked ? "open" : ""}`}
+        title="Открыть месяц. ПКМ — снять пометку дня"
+        onClick={openPicker}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          muteDay(selectedDate);
+        }}
+      >
+        {parseISO(selectedDate).getDate()}
+      </button>
+    </div>
+  );
+}
+
 export function Board() {
   const {
     tasks,
@@ -80,31 +115,18 @@ export function Board() {
     moveTask,
     focus,
     setFocus,
+    mutedDays,
+    muteDay,
   } = useStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [now, setNow] = useState(nowMinutes);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const today = todayISO();
   const days = weekDays(selectedDate);
-  const selected = parseISO(selectedDate);
 
   useEffect(() => {
     const id = setInterval(() => setNow(nowMinutes()), 30_000);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      const line = scrollRef.current?.querySelector(".now-line");
-      line?.scrollIntoView({ block: "center", inline: "nearest" });
-    }, 80);
-    return () => window.clearTimeout(id);
-  }, []);
-
-  const monthDays = useMemo(
-    () => monthCells(selected.getFullYear(), selected.getMonth()),
-    [selectedDate],
-  );
 
   const openDraft = (partial: Partial<Draft>) => {
     setDraft({
@@ -130,11 +152,14 @@ export function Board() {
     tasks.filter((t) => t.date === date && t.status === "active" && t.startMin == null);
 
   return (
-    <section className="panel board" data-panel="board">
+    <section className={`panel board ${focus === "board" ? "is-solo" : ""}`} data-panel="board">
       <header className="panel-head">
-        <div>
-          <p className="kicker">доска дня</p>
-          <h2>{prettyDate(selectedDate)}</h2>
+        <div className="head-title">
+          <DateChip />
+          <div>
+            <p className="kicker">доска дня</p>
+            <h2>{prettyDate(selectedDate)}</h2>
+          </div>
         </div>
         <div className="head-actions">
           <button
@@ -148,7 +173,7 @@ export function Board() {
           </button>
           <button
             className="icon-btn"
-            title="Развернуть окно"
+            title="На весь экран"
             onClick={() => setFocus(focus === "board" ? "all" : "board")}
           >
             <ExpandIcon />
@@ -157,40 +182,6 @@ export function Board() {
       </header>
 
       <div className="board-body">
-        <aside className="date-rail">
-          <p className="rail-month">
-            {MONTHS[selected.getMonth()]} {selected.getFullYear()}
-          </p>
-          <div className="rail-weekdays">
-            {WEEKDAYS.map((w) => (
-              <span key={w}>{w}</span>
-            ))}
-          </div>
-          <div className="rail-grid">
-            {monthDays.map((d) => {
-              const key = iso(d);
-              const inMonth = d.getMonth() === selected.getMonth();
-              const open = dayHasOpen(tasks, key);
-              return (
-                <button
-                  key={key}
-                  className={[
-                    "date-sq",
-                    inMonth ? "" : "dim",
-                    key === today ? "today" : "",
-                    key === selectedDate ? "sel" : "",
-                    open ? "open" : "",
-                  ].join(" ")}
-                  onClick={() => setSelectedDate(key)}
-                >
-                  {d.getDate()}
-                </button>
-              );
-            })}
-          </div>
-          <p className="rail-hint">бордовый контур — незакрытый день</p>
-        </aside>
-
         <div className="board-main">
           <div className="legend">
             <span className="prio-iu">важно срочно</span>
@@ -202,13 +193,18 @@ export function Board() {
 
           <div className="day-heads">
             <div className="hour-gutter-head" />
-            {days.map((d) => (
+            {days.map((d, i) => (
               <button
                 key={d}
-                className={`day-head ${d === today ? "today" : ""} ${d === selectedDate ? "sel" : ""} ${dayHasOpen(tasks, d) ? "open" : ""}`}
+                className={`day-head ${d === today ? "today" : ""} ${d === selectedDate ? "sel" : ""} ${dayShowsMark(tasks, d, mutedDays) ? "open" : ""}`}
                 onClick={() => setSelectedDate(d)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  muteDay(d);
+                }}
+                title="ПКМ — снять пометку дня"
               >
-                <em>{WEEKDAYS[days.indexOf(d)]}</em>
+                <em>{WEEKDAYS[i]}</em>
                 <strong>{parseISO(d).getDate()}</strong>
               </button>
             ))}
@@ -232,7 +228,7 @@ export function Board() {
             ))}
           </div>
 
-          <div className="grid-scroll" ref={scrollRef}>
+          <div className="grid-scroll">
             <div className="hours">
               {Array.from({ length: 24 }, (_, h) => (
                 <div key={h} className="hour-label" style={{ height: HOUR_H }}>

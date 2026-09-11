@@ -1,10 +1,14 @@
-:root {
+:root,
+html[data-theme="violet"] {
   --bg: #09060e;
+  --bg-rgb: 9, 6, 14;
   --ink: #f3ecfb;
   --muted: #9b8eae;
   --line: rgba(186, 150, 255, 0.16);
   --glow: 124, 72, 196;
-  --panel: rgba(18, 13, 28, 0.78);
+  --panel-top: rgba(36, 26, 52, 0.78);
+  --panel-bot: rgba(16, 11, 26, 0.9);
+  --select-ink: #8aa3d8;
   --radius: 28px;
   --iu: #c4454a;
   --in: #e2a54a;
@@ -13,8 +17,79 @@
   --chaos: #f3eee8;
   --done: #b7d7b4;
   --burgundy: #7a2230;
+  --mesh-2: 70, 30, 120;
   font-family: Manrope, "Segoe UI", sans-serif;
   color: var(--ink);
+}
+
+html[data-theme="ember"] {
+  --bg: #0e0706;
+  --bg-rgb: 14, 7, 6;
+  --ink: #fbece6;
+  --muted: #b89a8c;
+  --line: rgba(232, 140, 90, 0.18);
+  --glow: 196, 86, 48;
+  --panel-top: rgba(52, 28, 20, 0.8);
+  --panel-bot: rgba(22, 10, 8, 0.92);
+  --select-ink: #c9b08a;
+  --burgundy: #8a2a22;
+  --mesh-2: 120, 40, 20;
+}
+
+html[data-theme="abyss"] {
+  --bg: #050b10;
+  --bg-rgb: 5, 11, 16;
+  --ink: #e8f4fb;
+  --muted: #86a4b4;
+  --line: rgba(90, 190, 220, 0.16);
+  --glow: 42, 160, 196;
+  --panel-top: rgba(16, 36, 48, 0.8);
+  --panel-bot: rgba(6, 14, 20, 0.92);
+  --select-ink: #7eb8d4;
+  --burgundy: #6a3040;
+  --mesh-2: 20, 70, 100;
+}
+
+html[data-theme="moss"] {
+  --bg: #07100a;
+  --bg-rgb: 7, 16, 10;
+  --ink: #eaf6ec;
+  --muted: #8eaa94;
+  --line: rgba(110, 190, 120, 0.16);
+  --glow: 74, 154, 92;
+  --panel-top: rgba(20, 40, 26, 0.8);
+  --panel-bot: rgba(8, 16, 10, 0.92);
+  --select-ink: #9ec4a6;
+  --burgundy: #7a3a30;
+  --mesh-2: 30, 80, 40;
+}
+
+html[data-theme="steel"] {
+  --bg: #07090e;
+  --bg-rgb: 7, 9, 14;
+  --ink: #eef2fb;
+  --muted: #8e98b0;
+  --line: rgba(130, 160, 220, 0.16);
+  --glow: 90, 120, 196;
+  --panel-top: rgba(22, 26, 42, 0.8);
+  --panel-bot: rgba(8, 10, 18, 0.92);
+  --select-ink: #8aa0d4;
+  --burgundy: #6a3348;
+  --mesh-2: 30, 40, 90;
+}
+
+html[data-theme="wine"] {
+  --bg: #10060c;
+  --bg-rgb: 16, 6, 12;
+  --ink: #fbeaf1;
+  --muted: #b88a9a;
+  --line: rgba(210, 110, 150, 0.16);
+  --glow: 180, 70, 110;
+  --panel-top: rgba(48, 18, 32, 0.8);
+  --panel-bot: rgba(18, 8, 14, 0.92);
+  --select-ink: #c49ab0;
+  --burgundy: #8a2238;
+  --mesh-2: 90, 20, 50;
 }
 
 * {
@@ -65,8 +140,8 @@ button {
   inset: 0;
   background:
     radial-gradient(900px 500px at 18% 20%, rgba(var(--glow), 0.22), transparent 60%),
-    radial-gradient(700px 420px at 82% 70%, rgba(70, 30, 120, 0.28), transparent 65%),
-    radial-gradient(500px 300px at 50% 50%, rgba(40, 16, 70, 0.18), transparent 70%);
+    radial-gradient(700px 420px at 82% 70%, rgba(var(--mesh-2), 0.28), transparent 65%),
+    radial-gradient(500px 300px at 50% 50%, rgba(var(--bg-rgb), 0.18), transparent 70%);
   z-index: 0;
 }
 
@@ -75,9 +150,30 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   -webkit-app-region: drag;
   user-select: none;
+}
+
+.theme-row {
+  display: flex;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.theme-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: var(--swatch);
+  padding: 0;
+  opacity: 0.72;
+}
+
+.theme-dot.on {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--swatch);
 }
 
 .brand {
@@ -144,27 +240,49 @@ button {
   grid-row: 2;
 }
 
-.focus-board .layout {
-  grid-template-columns: 1fr 0.32fr;
+.focus-board .layout,
+.focus-planner .layout,
+.focus-done .layout {
+  grid-template-columns: 1.5fr 0.95fr;
   grid-template-rows: 1fr 1fr;
 }
 
-.focus-planner .layout {
-  grid-template-columns: 0.42fr 1fr;
-  grid-template-rows: 1.45fr 0.55fr;
+.app.focus-board .board,
+.app.focus-planner .planner,
+.app.focus-done .done {
+  position: absolute;
+  inset: 8px 18px 12px;
+  z-index: 12;
+  width: auto;
+  height: auto;
 }
 
-.focus-done .layout {
-  grid-template-columns: 0.42fr 1fr;
-  grid-template-rows: 0.55fr 1.45fr;
+.app.focus-board .planner,
+.app.focus-board .done,
+.app.focus-planner .board,
+.app.focus-planner .done,
+.app.focus-done .board,
+.app.focus-done .planner,
+.app.focus-board .clock-slot,
+.app.focus-planner .clock-slot,
+.app.focus-done .clock-slot {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.panel.is-solo {
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 0 48px rgba(var(--glow), 0.38),
+    0 0 110px rgba(var(--glow), 0.18);
 }
 
 .panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background:
-    linear-gradient(180deg, rgba(36, 26, 52, 0.72), rgba(16, 11, 26, 0.86));
+  background: linear-gradient(180deg, var(--panel-top), var(--panel-bot));
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow:
@@ -190,6 +308,12 @@ button {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .panel-head h2 {
@@ -255,35 +379,70 @@ button {
 
 .clock {
   pointer-events: auto;
-  width: 84px;
+  position: relative;
+  width: 124px;
+  height: 124px;
   padding: 0;
   border: 0;
   background: transparent;
-  display: grid;
-  place-items: center;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 18px rgba(var(--glow), 0.4));
 }
 
 .clock svg {
-  width: 84px;
-  height: 84px;
+  width: 124px;
+  height: 124px;
   display: block;
 }
 
 .clock-digital {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: "Cormorant Garamond", serif;
-  font-size: 15px;
-  letter-spacing: 0.12em;
-  color: rgba(243, 236, 251, 0.85);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--ink);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
 }
 
 .board-body {
   min-height: 0;
-  display: grid;
-  grid-template-columns: 148px 1fr;
-  gap: 10px;
+  display: flex;
   padding: 0 12px 12px;
   flex: 1;
+}
+
+.date-chip {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
+.date-chip input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border: 0;
+}
+
+.date-sq.mini {
+  width: 34px;
+  height: 34px;
+  aspect-ratio: auto;
+  border-radius: 10px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
 }
 
 .date-rail {
@@ -425,7 +584,7 @@ button {
   min-height: 58px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed rgba(186, 150, 255, 0.2);
+  border: 1px dashed var(--line);
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -723,12 +882,35 @@ button {
   text-underline-offset: 2px;
 }
 
+.select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 4px 26px 4px 12px;
   outline: none;
+  color: var(--select-ink);
+  min-width: 7.2em;
+}
+
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--select-ink);
+  border-bottom: 1.5px solid var(--select-ink);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
 }
 
 .plan-month,
@@ -921,14 +1103,16 @@ button {
 }
 
 @media (max-width: 1180px) {
-  .board-body {
-    grid-template-columns: 120px 1fr;
-  }
   .clock {
-    width: 72px;
+    width: 104px;
+    height: 104px;
   }
   .clock svg {
-    width: 72px;
-    height: 72px;
+    width: 104px;
+    height: 104px;
+  }
+  .clock-digital {
+    top: 14px;
+    font-size: 17px;
   }
 }

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Draft, PanelFocus, PlannerView, Task } from "./types";
+import type { ThemeId } from "./themes";
 import { todayISO, uid } from "./time";
 
 const KEY = "noctis-board-v1";
@@ -19,6 +20,9 @@ export interface State {
   plannerView: PlannerView;
   plannerCursor: string;
   focus: PanelFocus;
+  mutedDays: string[];
+  muteStamp: string;
+  theme: ThemeId;
 }
 
 interface Store extends State {
@@ -27,6 +31,8 @@ interface Store extends State {
   setPlannerView: (view: PlannerView) => void;
   setPlannerCursor: (date: string) => void;
   setFocus: (focus: PanelFocus) => void;
+  setTheme: (theme: ThemeId) => void;
+  muteDay: (date: string) => void;
   saveTask: (draft: Draft) => void;
   completeTask: (id: string) => void;
   startTask: (id: string) => void;
@@ -97,9 +103,14 @@ function load(): State {
         plannerView: "week",
         plannerCursor: today,
         focus: "all",
+        mutedDays: [],
+        muteStamp: today,
+        theme: "violet",
       };
     }
     const parsed = JSON.parse(raw) as Partial<State>;
+    const muteStamp = parsed.muteStamp === today ? parsed.muteStamp : today;
+    const mutedDays = parsed.muteStamp === today ? parsed.mutedDays ?? [] : [];
     return {
       tasks: parsed.tasks ?? seed(),
       selectedDate: parsed.followToday === false ? parsed.selectedDate ?? today : today,
@@ -107,6 +118,9 @@ function load(): State {
       plannerView: parsed.plannerView ?? "week",
       plannerCursor: parsed.plannerCursor ?? today,
       focus: "all",
+      mutedDays,
+      muteStamp,
+      theme: parsed.theme ?? "violet",
     };
   } catch {
     return {
@@ -116,12 +130,19 @@ function load(): State {
       plannerView: "week",
       plannerCursor: today,
       focus: "all",
+      mutedDays: [],
+      muteStamp: today,
+      theme: "violet",
     };
   }
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(() => load());
+  const [state, setState] = useState<State>(() => {
+    const initial = load();
+    document.documentElement.dataset.theme = initial.theme;
+    return initial;
+  });
 
   useEffect(() => {
     const persist = {
@@ -130,19 +151,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       followToday: state.followToday,
       plannerView: state.plannerView,
       plannerCursor: state.plannerCursor,
+      mutedDays: state.mutedDays,
+      muteStamp: state.muteStamp,
+      theme: state.theme,
     };
     localStorage.setItem(KEY, JSON.stringify(persist));
+    document.documentElement.dataset.theme = state.theme;
   }, [state]);
 
   useEffect(() => {
     const tick = () => {
       const today = todayISO();
       setState((s) => {
-        if (!s.followToday && s.selectedDate === today) return s;
-        if (s.followToday && s.selectedDate !== today) {
-          return { ...s, selectedDate: today };
+        let next = s;
+        if (s.muteStamp !== today) {
+          next = { ...next, mutedDays: [], muteStamp: today };
         }
-        return s;
+        if (next.followToday && next.selectedDate !== today) {
+          next = { ...next, selectedDate: today };
+        }
+        return next === s ? s : next;
       });
     };
     const id = setInterval(tick, 15_000);
@@ -171,6 +199,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPlannerView: (plannerView) => setState((s) => ({ ...s, plannerView })),
       setPlannerCursor: (plannerCursor) => setState((s) => ({ ...s, plannerCursor })),
       setFocus: (focus) => setState((s) => ({ ...s, focus })),
+      setTheme: (theme) => setState((s) => ({ ...s, theme })),
+      muteDay: (date) =>
+        setState((s) => ({
+          ...s,
+          muteStamp: todayISO(),
+          mutedDays: s.mutedDays.includes(date)
+            ? s.mutedDays.filter((d) => d !== date)
+            : [...s.mutedDays, date],
+        })),
       saveTask: (draft) =>
         setState((s) => {
           if (draft.id) {
@@ -281,6 +318,12 @@ export function useStore() {
 
 export function dayHasOpen(tasks: Task[], date: string) {
   return tasks.some((t) => t.date === date && t.status !== "done");
+}
+
+export function dayShowsMark(tasks: Task[], date: string, mutedDays: string[]) {
+  if (mutedDays.includes(date)) return false;
+  if (date < todayISO()) return false;
+  return dayHasOpen(tasks, date);
 }
 
 export function dayHasImportant(tasks: Task[], date: string) {
