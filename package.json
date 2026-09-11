@@ -3,14 +3,14 @@
   "productName": "Noctis",
   "version": "0.1.0",
   "private": true,
+  "author": "Noctis",
   "description": "Интерактивная доска дел с тремя парящими окнами",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite",
+    "start": "npm run desktop",
+    "desktop": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env ELECTRON_DEV=1 electron .\"",
     "build": "vite build",
-    "preview": "vite preview",
-    "electron:dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env ELECTRON_DEV=1 electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "dist": "vite build && electron-builder --win portable"
   },
   "build": {
     "appId": "app.noctis.board",
@@ -22,14 +22,22 @@
     "directories": {
       "output": "release"
     },
+    "asar": true,
     "win": {
+      "signAndEditExecutable": false,
       "target": [
-        "nsis"
-      ],
-      "artifactName": "Noctis-Setup-${version}.${ext}"
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Noctis.exe"
     },
     "nsis": {
-      "oneClick": true
+      "oneClick": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Noctis",
+      "artifactName": "Noctis-Setup-${version}.exe"
     }
   },
   "dependencies": {

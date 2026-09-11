@@ -29,7 +29,8 @@ function createWindow() {
 
   win.webContents.setVisualZoomLevelLimits(1, 1);
 
-  if (process.env.ELECTRON_DEV === "1") {
+  const isDev = process.env.ELECTRON_DEV === "1" && !app.isPackaged;
+  if (isDev) {
     win.loadURL("http://127.0.0.1:5173");
   } else {
     win.loadFile(path.join(__dirname, "../dist/index.html"));
@@ -40,7 +41,17 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
+  app.whenReady().then(createWindow);
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
