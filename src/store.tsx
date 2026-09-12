@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { Draft, PanelFocus, PlannerView, Task } from "./types";
 import type { ThemeId } from "./themes";
-import { todayISO, uid } from "./time";
+import { nowMinutes, snapMin, todayISO, uid } from "./time";
 
 const KEY = "noctis-board-v1";
 
@@ -21,8 +21,10 @@ export interface State {
   plannerCursor: string;
   focus: PanelFocus;
   mutedDays: string[];
+  pinnedDays: string[];
   muteStamp: string;
   theme: ThemeId;
+  plannerFollow: boolean;
 }
 
 interface Store extends State {
@@ -43,6 +45,12 @@ interface Store extends State {
 }
 
 const Ctx = createContext<Store | null>(null);
+
+function pinActiveTime(task: Task): Task {
+  if (task.status !== "active" || task.startMin != null) return task;
+  const startMin = snapMin(9 * 60);
+  return { ...task, startMin, endMin: startMin + 60 };
+}
 
 function seed(): Task[] {
   const d = todayISO();
@@ -97,40 +105,48 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
       return {
-        tasks: seed(),
+        tasks: seed().map(pinActiveTime),
         selectedDate: today,
         followToday: true,
         plannerView: "week",
         plannerCursor: today,
         focus: "all",
         mutedDays: [],
+        pinnedDays: [],
         muteStamp: today,
         theme: "violet",
+        plannerFollow: true,
       };
     }
     const parsed = JSON.parse(raw) as Partial<State>;
     const muteStamp = parsed.muteStamp === today ? parsed.muteStamp : today;
     const mutedDays = parsed.muteStamp === today ? parsed.mutedDays ?? [] : [];
+    const pinnedDays = parsed.muteStamp === today ? parsed.pinnedDays ?? [] : [];
+    const plannerFollow = parsed.plannerFollow !== false;
     return {
-      tasks: parsed.tasks ?? seed(),
+      tasks: (parsed.tasks ?? seed()).map(pinActiveTime),
       selectedDate: parsed.followToday === false ? parsed.selectedDate ?? today : today,
       followToday: parsed.followToday !== false,
       plannerView: parsed.plannerView ?? "week",
-      plannerCursor: parsed.plannerCursor ?? today,
+      plannerCursor: plannerFollow ? today : parsed.plannerCursor ?? today,
+      plannerFollow,
       focus: "all",
       mutedDays,
+      pinnedDays,
       muteStamp,
-      theme: parsed.theme ?? "violet",
+      theme: "violet",
     };
   } catch {
     return {
-      tasks: seed(),
+      tasks: seed().map(pinActiveTime),
       selectedDate: today,
       followToday: true,
       plannerView: "week",
       plannerCursor: today,
+      plannerFollow: true,
       focus: "all",
       mutedDays: [],
+      pinnedDays: [],
       muteStamp: today,
       theme: "violet",
     };
@@ -140,7 +156,7 @@ function load(): State {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(() => {
     const initial = load();
-    document.documentElement.dataset.theme = initial.theme;
+    document.documentElement.dataset.theme = "violet";
     return initial;
   });
 
@@ -151,12 +167,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       followToday: state.followToday,
       plannerView: state.plannerView,
       plannerCursor: state.plannerCursor,
+      plannerFollow: state.plannerFollow,
       mutedDays: state.mutedDays,
+      pinnedDays: state.pinnedDays,
       muteStamp: state.muteStamp,
       theme: state.theme,
     };
     localStorage.setItem(KEY, JSON.stringify(persist));
-    document.documentElement.dataset.theme = state.theme;
+    document.documentElement.dataset.theme = "violet";
   }, [state]);
 
   useEffect(() => {
@@ -165,10 +183,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setState((s) => {
         let next = s;
         if (s.muteStamp !== today) {
-          next = { ...next, mutedDays: [], muteStamp: today };
+          next = { ...next, mutedDays: [], pinnedDays: [], muteStamp: today };
         }
         if (next.followToday && next.selectedDate !== today) {
           next = { ...next, selectedDate: today };
+        }
+        if (next.plannerFollow && next.plannerCursor !== today) {
+          next = { ...next, plannerCursor: today };
         }
         return next === s ? s : next;
       });
@@ -195,19 +216,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           selectedDate: todayISO(),
           followToday: true,
+          plannerCursor: todayISO(),
+          plannerFollow: true,
         })),
       setPlannerView: (plannerView) => setState((s) => ({ ...s, plannerView })),
-      setPlannerCursor: (plannerCursor) => setState((s) => ({ ...s, plannerCursor })),
+      setPlannerCursor: (plannerCursor) =>
+        setState((s) => ({ ...s, plannerCursor, plannerFollow: false })),
       setFocus: (focus) => setState((s) => ({ ...s, focus })),
       setTheme: (theme) => setState((s) => ({ ...s, theme })),
       muteDay: (date) =>
-        setState((s) => ({
-          ...s,
-          muteStamp: todayISO(),
-          mutedDays: s.mutedDays.includes(date)
-            ? s.mutedDays.filter((d) => d !== date)
-            : [...s.mutedDays, date],
-        })),
+        setState((s) => {
+          if (date < todayISO()) return s;
+          const showing = dayShowsMark(s.tasks, date, s.mutedDays, s.pinnedDays);
+          if (showing) {
+            return {
+              ...s,
+              muteStamp: todayISO(),
+              pinnedDays: s.pinnedDays.filter((d) => d !== date),
+              mutedDays: s.mutedDays.includes(date) ? s.mutedDays : [...s.mutedDays, date],
+            };
+          }
+          return {
+            ...s,
+            muteStamp: todayISO(),
+            mutedDays: s.mutedDays.filter((d) => d !== date),
+            pinnedDays: s.pinnedDays.includes(date) ? s.pinnedDays : [...s.pinnedDays, date],
+          };
+        }),
       saveTask: (draft) =>
         setState((s) => {
           if (draft.id) {
@@ -253,23 +288,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         })),
       startTask: (id) =>
-        setState((s) => ({
-          ...s,
-          selectedDate: todayISO(),
-          followToday: true,
-          tasks: s.tasks.map((t) =>
-            t.id === id
-              ? {
-                  ...t,
-                  status: "active",
-                  date: todayISO(),
-                  startMin: undefined,
-                  endMin: undefined,
-                  startedAt: Date.now(),
-                }
-              : t,
-          ),
-        })),
+        setState((s) => {
+          const startMin = snapMin(nowMinutes());
+          return {
+            ...s,
+            selectedDate: todayISO(),
+            followToday: true,
+            plannerCursor: todayISO(),
+            plannerFollow: true,
+            tasks: s.tasks.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    status: "active",
+                    date: todayISO(),
+                    startMin,
+                    endMin: Math.min(24 * 60, startMin + 60),
+                    startedAt: Date.now(),
+                  }
+                : t,
+            ),
+          };
+        }),
       restoreTask: (id) =>
         setState((s) => ({
           ...s,
@@ -320,9 +360,15 @@ export function dayHasOpen(tasks: Task[], date: string) {
   return tasks.some((t) => t.date === date && t.status !== "done");
 }
 
-export function dayShowsMark(tasks: Task[], date: string, mutedDays: string[]) {
-  if (mutedDays.includes(date)) return false;
+export function dayShowsMark(
+  tasks: Task[],
+  date: string,
+  mutedDays: string[],
+  pinnedDays: string[] = [],
+) {
   if (date < todayISO()) return false;
+  if (mutedDays.includes(date)) return false;
+  if (pinnedDays.includes(date)) return true;
   return dayHasOpen(tasks, date);
 }
 

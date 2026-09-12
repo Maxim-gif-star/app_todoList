@@ -1,4 +1,4 @@
-import { ExpandIcon } from "./chrome";
+import { ExpandIcon, panelFloatProps } from "./chrome";
 import { useStore } from "./store";
 import { formatStamp } from "./time";
 
@@ -12,6 +12,7 @@ export function DoneTray() {
     <section
       className={`panel done ${focus === "done" ? "is-solo" : ""}`}
       data-panel="done"
+      {...panelFloatProps(focus === "done")}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         const id = e.dataTransfer.getData("text/task-id");

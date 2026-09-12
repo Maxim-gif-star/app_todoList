@@ -89,9 +89,31 @@ export const MONTHS = [
   "декабрь",
 ];
 
+export const MONTHS_GEN = [
+  "января",
+  "февраля",
+  "марта",
+  "апреля",
+  "мая",
+  "июня",
+  "июля",
+  "августа",
+  "сентября",
+  "октября",
+  "ноября",
+  "декабря",
+];
+
 export function prettyDate(s: string) {
   const d = parseISO(s);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+}
+
+export function prettyMonth(s: string) {
+  const d = parseISO(s);
+  const month = MONTHS_GEN[d.getMonth()];
+  const year = new Date().getFullYear();
+  return d.getFullYear() === year ? month : `${month} ${d.getFullYear()}`;
 }
 
 export function uid() {

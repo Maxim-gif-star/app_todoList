@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ExpandIcon } from "./chrome";
+import { ExpandIcon, panelFloatProps } from "./chrome";
 import { dayHasImportant, dayShowsMark, monthHasImportant, useStore } from "./store";
 import { TaskEditor } from "./TaskEditor";
 import type { Draft, PlannerView } from "./types";
@@ -12,6 +12,7 @@ import {
   parseISO,
   prettyDate,
   startOfWeek,
+  todayISO,
   weekDays,
 } from "./time";
 
@@ -33,14 +34,17 @@ export function Planner() {
     startTask,
     toggleImportant,
     deleteTask,
+    goToday,
     focus,
     setFocus,
     mutedDays,
+    pinnedDays,
     muteDay,
   } = useStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const cursor = parseISO(plannerCursor);
   const days = weekDays(plannerCursor);
+  const today = todayISO();
 
   const shift = (n: number) => {
     if (plannerView === "week") setPlannerCursor(addDays(startOfWeek(plannerCursor), n * 7));
@@ -65,7 +69,11 @@ export function Planner() {
     tasks.filter((t) => t.date === date && t.status === "planned");
 
   return (
-    <section className={`panel planner ${focus === "planner" ? "is-solo" : ""}`} data-panel="planner">
+    <section
+      className={`panel planner ${focus === "planner" ? "is-solo" : ""}`}
+      data-panel="planner"
+      {...panelFloatProps(focus === "planner")}
+    >
       <header className="panel-head">
         <div>
           <p className="kicker">план</p>
@@ -83,6 +91,9 @@ export function Planner() {
           </button>
           <button className="ghost sm" onClick={() => shift(1)}>
             ›
+          </button>
+          <button className="ghost sm" onClick={goToday}>
+            сегодня
           </button>
           <label className="select-wrap">
             <select
@@ -111,7 +122,7 @@ export function Planner() {
           {days.map((d, i) => (
             <div
               key={d}
-              className={`plan-day ${dayShowsMark(tasks, d, mutedDays) ? "open" : ""} ${dayHasImportant(tasks, d) ? "marked" : ""}`}
+              className={`plan-day ${d === today ? "today" : ""} ${dayShowsMark(tasks, d, mutedDays, pinnedDays) ? "open" : ""} ${dayHasImportant(tasks, d) ? "marked" : ""}`}
               onClick={() =>
                 setDraft({
                   title: "",
@@ -123,6 +134,7 @@ export function Planner() {
               }
               onContextMenu={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 muteDay(d);
               }}
             >
@@ -176,7 +188,8 @@ export function Planner() {
                   className={[
                     "month-cell",
                     inMonth ? "" : "dim",
-                    dayShowsMark(tasks, key, mutedDays) ? "open" : "",
+                    key === today ? "today" : "",
+                    dayShowsMark(tasks, key, mutedDays, pinnedDays) ? "open" : "",
                     dayHasImportant(tasks, key) ? "marked" : "",
                   ].join(" ")}
                   onClick={() => {
@@ -191,6 +204,7 @@ export function Planner() {
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     muteDay(key);
                   }}
                 >

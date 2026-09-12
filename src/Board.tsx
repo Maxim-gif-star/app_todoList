@@ -1,15 +1,19 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
-import { ExpandIcon } from "./chrome";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
+import { createPortal } from "react-dom";
+import { ExpandIcon, panelFloatProps } from "./chrome";
 import { dayShowsMark, useStore } from "./store";
 import { TaskEditor } from "./TaskEditor";
 import type { Draft, Task } from "./types";
 import { HOUR_H } from "./types";
 import {
+  MONTHS,
   WEEKDAYS,
+  iso,
   minutesToLabel,
+  monthCells,
   nowMinutes,
   parseISO,
-  prettyDate,
+  prettyMonth,
   snapMin,
   todayISO,
   weekDays,
@@ -68,40 +72,132 @@ function TaskCard({
 }
 
 function DateChip() {
-  const { selectedDate, setSelectedDate, tasks, mutedDays, muteDay } = useStore();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { selectedDate, setSelectedDate, tasks, mutedDays, pinnedDays, muteDay } = useStore();
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const selected = parseISO(selectedDate);
+  const [view, setView] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
   const today = todayISO();
-  const marked = dayShowsMark(tasks, selectedDate, mutedDays);
+  const marked = dayShowsMark(tasks, selectedDate, mutedDays, pinnedDays);
 
-  const openPicker = () => {
-    const el = inputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") el.showPicker();
-    else el.click();
-  };
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const width = 308;
+    const left = Math.min(Math.max(12, r.left), window.innerWidth - width - 12);
+    setPos({ top: r.bottom + 8, left });
+    setView(new Date(selected.getFullYear(), selected.getMonth(), 1));
+  }, [open, selectedDate]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const cells = monthCells(view.getFullYear(), view.getMonth());
 
   return (
-    <div className="date-chip">
-      <input
-        ref={inputRef}
-        type="date"
-        value={selectedDate}
-        onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-        aria-label="Календарь"
-      />
+    <span className="date-chip">
       <button
+        ref={btnRef}
         type="button"
-        className={`date-sq mini ${selectedDate === today ? "today" : ""} ${marked ? "open" : ""}`}
+        className={`date-sq mini ${selectedDate === today ? "today" : ""} ${marked ? "open" : ""} ${open ? "on" : ""}`}
         title="Открыть месяц. ПКМ — снять пометку дня"
-        onClick={openPicker}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           muteDay(selectedDate);
         }}
       >
-        {parseISO(selectedDate).getDate()}
+        {selected.getDate()}
       </button>
-    </div>
+      {open &&
+        createPortal(
+          <div
+            ref={popRef}
+            className="cal-pop"
+            role="dialog"
+            aria-label="Календарь"
+            style={{ top: pos.top, left: pos.left }}
+          >
+            <div className="cal-head">
+              <button
+                type="button"
+                className="cal-nav"
+                aria-label="Предыдущий месяц"
+                onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}
+              >
+                ‹
+              </button>
+              <strong>
+                {MONTHS[view.getMonth()]} {view.getFullYear()}
+              </strong>
+              <button
+                type="button"
+                className="cal-nav"
+                aria-label="Следующий месяц"
+                onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))}
+              >
+                ›
+              </button>
+            </div>
+            <div className="cal-wd">
+              {WEEKDAYS.map((w) => (
+                <span key={w}>{w}</span>
+              ))}
+            </div>
+            <div className="cal-grid">
+              {cells.map((d) => {
+                const key = iso(d);
+                const inMonth = d.getMonth() === view.getMonth();
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={[
+                      "cal-day",
+                      inMonth ? "" : "dim",
+                      key === today ? "today" : "",
+                      key === selectedDate ? "sel" : "",
+                      dayShowsMark(tasks, key, mutedDays, pinnedDays) ? "open" : "",
+                    ].join(" ")}
+                    onClick={() => {
+                      setSelectedDate(key);
+                      setOpen(false);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      muteDay(key);
+                    }}
+                  >
+                    {d.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </span>
   );
 }
 
@@ -116,6 +212,7 @@ export function Board() {
     focus,
     setFocus,
     mutedDays,
+    pinnedDays,
     muteDay,
   } = useStore();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -129,12 +226,15 @@ export function Board() {
   }, []);
 
   const openDraft = (partial: Partial<Draft>) => {
+    const startMin = selectedDate === today ? snapMin(now) : 9 * 60;
     setDraft({
       title: "",
       date: selectedDate,
       priority: "in",
       status: "active",
       important: false,
+      startMin,
+      endMin: Math.min(24 * 60, startMin + 60),
       ...partial,
     });
   };
@@ -147,25 +247,24 @@ export function Board() {
   };
 
   const timed = (date: string) =>
-    tasks.filter((t) => t.date === date && t.status === "active" && t.startMin != null);
-  const floating = (date: string) =>
-    tasks.filter((t) => t.date === date && t.status === "active" && t.startMin == null);
+    tasks.filter((t) => t.date === date && t.status === "active");
 
   return (
-    <section className={`panel board ${focus === "board" ? "is-solo" : ""}`} data-panel="board">
+    <section
+      className={`panel board ${focus === "board" ? "is-solo" : ""}`}
+      data-panel="board"
+      {...panelFloatProps(focus === "board")}
+    >
       <header className="panel-head">
-        <div className="head-title">
-          <DateChip />
-          <div>
-            <p className="kicker">доска дня</p>
-            <h2>{prettyDate(selectedDate)}</h2>
-          </div>
+        <div>
+          <p className="kicker">доска дня</p>
+          <h2 className="board-date-title">
+            <DateChip />
+            <span>{prettyMonth(selectedDate)}</span>
+          </h2>
         </div>
         <div className="head-actions">
-          <button
-            className="ghost sm"
-            onClick={() => openDraft({ date: selectedDate, status: "active" })}
-          >
+          <button className="ghost sm" onClick={() => openDraft({ date: selectedDate })}>
             + дело
           </button>
           <button className="ghost sm" onClick={goToday}>
@@ -196,10 +295,11 @@ export function Board() {
             {days.map((d, i) => (
               <button
                 key={d}
-                className={`day-head ${d === today ? "today" : ""} ${d === selectedDate ? "sel" : ""} ${dayShowsMark(tasks, d, mutedDays) ? "open" : ""}`}
+                className={`day-head ${d === today ? "today" : ""} ${d === selectedDate ? "sel" : ""} ${dayShowsMark(tasks, d, mutedDays, pinnedDays) ? "open" : ""}`}
                 onClick={() => setSelectedDate(d)}
                 onContextMenu={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   muteDay(d);
                 }}
                 title="ПКМ — снять пометку дня"
@@ -207,24 +307,6 @@ export function Board() {
                 <em>{WEEKDAYS[i]}</em>
                 <strong>{parseISO(d).getDate()}</strong>
               </button>
-            ))}
-          </div>
-
-          <div className="now-strip">
-            <div className="hour-gutter-head">сейчас</div>
-            {days.map((d) => (
-              <div
-                key={d}
-                className="now-cell"
-                onClick={() => openDraft({ date: d, status: "active" })}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={onDropDay(d, undefined)}
-              >
-                {floating(d).map((t) => (
-                  <TaskCard key={t.id} task={t} compact onEdit={(task) => openDraft(task)} />
-                ))}
-                {floating(d).length === 0 && <span className="ghost-add">+ первая ячейка</span>}
-              </div>
             ))}
           </div>
 
@@ -274,7 +356,7 @@ export function Board() {
                     <div
                       key={t.id}
                       className="task-abs"
-                      style={{ top: ((t.startMin ?? 0) / 60) * HOUR_H + 2 }}
+                      style={{ top: ((t.startMin ?? 9 * 60) / 60) * HOUR_H + 2 }}
                     >
                       <TaskCard task={t} onEdit={(task) => openDraft(task)} />
                     </div>

@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { Board } from "./Board";
-import { Clock, TitleBar } from "./chrome";
+import { TitleBar } from "./chrome";
 import { DoneTray } from "./DoneTray";
 import { Planner } from "./Planner";
 import { StoreProvider, useStore } from "./store";
 import type { PanelFocus } from "./types";
 
 function Shell() {
-  const { focus, setFocus, theme, setTheme } = useStore();
+  const { focus, setFocus } = useStore();
 
   useEffect(() => {
     const hit = (x: number, y: number): PanelFocus => {
@@ -45,24 +45,18 @@ function Shell() {
 
   return (
     <div className={`app focus-${focus}`}>
-      <div className="vignette" />
-      <div className="mesh" />
       <TitleBar
         expanded={focus !== "all"}
         onToggle={() => setFocus(focus === "all" ? "board" : "all")}
-        theme={theme}
-        onTheme={setTheme}
+        onReset={() => setFocus("all")}
       />
       <main className="layout">
         <Board />
         <Planner />
         <DoneTray />
-        <div className="clock-slot" data-swipe-zone="1">
-          <Clock onReset={() => setFocus("all")} />
-        </div>
       </main>
       <p className="hint">
-        квадрат даты открывает месяц · ПКМ по дню снимает пометку · кнопка окна — на весь экран
+        ПКМ по дню ставит и снимает пометку · квадрат даты открывает месяц · наведите на окно — оно выступит
       </p>
     </div>
   );

@@ -10,7 +10,7 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 720,
-    backgroundColor: "#09060e",
+    backgroundColor: "#000000",
     frame: false,
     show: false,
     autoHideMenuBar: true,
@@ -28,6 +28,9 @@ function createWindow() {
   });
 
   win.webContents.setVisualZoomLevelLimits(1, 1);
+  win.webContents.on("context-menu", (event) => {
+    event.preventDefault();
+  });
 
   const isDev = process.env.ELECTRON_DEV === "1" && !app.isPackaged;
   if (isDev) {
