@@ -3,11 +3,13 @@ import { createPortal } from "react-dom";
 import { ExpandIcon, panelFloatProps } from "./chrome";
 import { dayShowsMark, useStore } from "./store";
 import { TaskEditor } from "./TaskEditor";
+import { resolvePriority } from "./tags";
 import type { Draft, Task } from "./types";
 import { HOUR_H } from "./types";
 import {
   MONTHS,
   WEEKDAYS,
+  carryLabel,
   iso,
   minutesToLabel,
   monthCells,
@@ -34,22 +36,42 @@ function TaskCard({
       ? Math.max(30, task.endMin - task.startMin)
       : 60;
   const height = compact ? undefined : Math.max(28, (dur / 60) * HOUR_H - 6);
+  const carried =
+    task.originDate && task.originDate !== task.date ? task.originDate : undefined;
+
+  const onGripDrag = (e: DragEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("text/task-id", task.id);
+    e.dataTransfer.setData("text/plain", task.id);
+    e.dataTransfer.effectAllowed = "move";
+    const card = e.currentTarget.closest("article");
+    if (card instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(card, Math.min(36, card.offsetWidth / 2), 14);
+    }
+  };
 
   return (
     <article
-      className={`task prio-${task.priority} ${compact ? "compact" : ""} ${task.important ? "starred" : ""}`}
+      className={`task prio-${resolvePriority(task.title, task.priority)} ${compact ? "compact" : ""} ${task.important ? "starred" : ""}`}
       style={compact ? undefined : { height }}
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/task-id", task.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onEdit(task);
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      <span
+        className="task-grip"
+        title="Перенести на другой день"
+        draggable
+        onDragStart={onGripDrag}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        <i />
+        <i />
+      </span>
       <div className="task-top">
         <button
           className="done-dot"
@@ -65,6 +87,11 @@ function TaskCard({
         <p className="task-time">
           {minutesToLabel(task.startMin)}
           {task.endMin != null ? ` – ${minutesToLabel(task.endMin)}` : ""}
+        </p>
+      )}
+      {carried && (
+        <p className="task-carry" title={`Перенесено с ${carryLabel(carried)}`}>
+          с {carryLabel(carried)}
         </p>
       )}
     </article>
@@ -217,12 +244,23 @@ export function Board() {
   } = useStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [now, setNow] = useState(nowMinutes);
+  const [dropDay, setDropDay] = useState<string | null>(null);
   const today = todayISO();
   const days = weekDays(selectedDate);
 
   useEffect(() => {
     const id = setInterval(() => setNow(nowMinutes()), 30_000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const clear = () => setDropDay(null);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("drop", clear);
+    return () => {
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("drop", clear);
+    };
   }, []);
 
   const openDraft = (partial: Partial<Draft>) => {
@@ -253,7 +291,7 @@ export function Board() {
     <section
       className={`panel board ${focus === "board" ? "is-solo" : ""}`}
       data-panel="board"
-      {...panelFloatProps(focus === "board")}
+      {...panelFloatProps(focus === "board", 0)}
     >
       <header className="panel-head">
         <div>
@@ -322,7 +360,7 @@ export function Board() {
               {days.map((d) => (
                 <div
                   key={d}
-                  className={`day-col ${d === today ? "today" : ""}`}
+                  className={`day-col ${d === today ? "today" : ""} ${dropDay === d ? "drop-on" : ""}`}
                   style={{ height: 24 * HOUR_H }}
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -335,11 +373,16 @@ export function Board() {
                       status: "active",
                     });
                   }}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDropDay(d);
+                  }}
                   onDrop={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const y = e.clientY - rect.top;
                     onDropDay(d, snapMin((y / HOUR_H) * 60))(e);
+                    setDropDay(null);
                   }}
                 >
                   {Array.from({ length: 48 }, (_, i) => (

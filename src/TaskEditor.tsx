@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Draft, Priority } from "./types";
 import { PRIORITIES } from "./types";
+import { priorityFromHashtags } from "./tags";
 import { minutesToLabel } from "./time";
 
 export function TaskEditor({
@@ -23,6 +24,9 @@ export function TaskEditor({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const autoPrio = priorityFromHashtags(form.title);
+  const shownPrio = autoPrio ?? form.priority;
 
   const timeValue = (min?: number) => (min == null ? "" : minutesToLabel(min));
 
@@ -50,7 +54,11 @@ export function TaskEditor({
           className="editor-title"
           placeholder="Что нужно сделать…"
           value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          onChange={(e) => {
+            const title = e.target.value;
+            const auto = priorityFromHashtags(title);
+            setForm({ ...form, title, priority: auto ?? form.priority });
+          }}
         />
         <div className="editor-row">
           <label>
@@ -87,8 +95,11 @@ export function TaskEditor({
             <button
               key={p.id}
               type="button"
-              className={`prio-pill prio-${p.id} ${form.priority === p.id ? "on" : ""}`}
-              onClick={() => setForm({ ...form, priority: p.id as Priority })}
+              className={`prio-pill prio-${p.id} ${shownPrio === p.id ? "on" : ""}`}
+              onClick={() => {
+                if (autoPrio) return;
+                setForm({ ...form, priority: p.id as Priority });
+              }}
             >
               {p.label}
             </button>

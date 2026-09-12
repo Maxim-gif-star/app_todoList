@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Draft, PanelFocus, PlannerView, Task } from "./types";
 import type { ThemeId } from "./themes";
+import { resolvePriority } from "./tags";
 import { nowMinutes, snapMin, todayISO, uid } from "./time";
 
 const KEY = "noctis-board-v1";
@@ -50,6 +51,17 @@ function pinActiveTime(task: Task): Task {
   if (task.status !== "active" || task.startMin != null) return task;
   const startMin = snapMin(9 * 60);
   return { ...task, startMin, endMin: startMin + 60 };
+}
+
+function applyCarry(task: Task, nextDate: string): Task {
+  if (nextDate === task.date) return task;
+  const today = todayISO();
+  let originDate = task.originDate;
+  if (task.date < today) {
+    originDate = task.originDate ?? task.date;
+  }
+  if (originDate === nextDate) originDate = undefined;
+  return { ...task, date: nextDate, originDate };
 }
 
 function seed(): Task[] {
@@ -248,29 +260,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (draft.id) {
             return {
               ...s,
-              tasks: s.tasks.map((t) =>
-                t.id === draft.id
-                  ? {
-                      ...t,
-                      title: draft.title.trim(),
-                      date: draft.date,
-                      startMin: draft.startMin,
-                      endMin: draft.endMin,
-                      priority: draft.priority,
-                      status: draft.status,
-                      important: draft.important,
-                    }
-                  : t,
-              ),
+              tasks: s.tasks.map((t) => {
+                if (t.id !== draft.id) return t;
+                const carried = applyCarry(t, draft.date);
+                return {
+                  ...carried,
+                  title: draft.title.trim(),
+                  startMin: draft.startMin,
+                  endMin: draft.endMin,
+                  priority: resolvePriority(draft.title, draft.priority),
+                  status: draft.status,
+                  important: draft.important,
+                };
+              }),
             };
           }
+          const title = draft.title.trim();
           const task: Task = {
             id: uid(),
-            title: draft.title.trim(),
+            title,
             date: draft.date,
             startMin: draft.startMin,
             endMin: draft.endMin,
-            priority: draft.priority,
+            priority: resolvePriority(title, draft.priority),
             status: draft.status,
             important: draft.important,
             createdAt: Date.now(),
@@ -283,7 +295,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           tasks: s.tasks.map((t) =>
             t.id === id
-              ? { ...t, status: "done", completedAt: Date.now() }
+              ? { ...t, status: "done", completedAt: Date.now(), originDate: undefined }
               : t,
           ),
         })),
@@ -296,18 +308,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             followToday: true,
             plannerCursor: todayISO(),
             plannerFollow: true,
-            tasks: s.tasks.map((t) =>
-              t.id === id
-                ? {
-                    ...t,
-                    status: "active",
-                    date: todayISO(),
-                    startMin,
-                    endMin: Math.min(24 * 60, startMin + 60),
-                    startedAt: Date.now(),
-                  }
-                : t,
-            ),
+            tasks: s.tasks.map((t) => {
+              if (t.id !== id) return t;
+              const today = todayISO();
+              const carried = applyCarry(t, today);
+              return {
+                ...carried,
+                status: "active",
+                startMin,
+                endMin: Math.min(24 * 60, startMin + 60),
+                startedAt: Date.now(),
+              };
+            }),
           };
         }),
       restoreTask: (id) =>
@@ -333,7 +345,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const nextStart = startMin;
             const nextEnd =
               nextStart != null ? Math.min(24 * 60, nextStart + Math.max(dur, 30)) : undefined;
-            return { ...t, date, startMin: nextStart, endMin: nextEnd };
+            const carried = applyCarry(t, date);
+            return { ...carried, startMin: nextStart, endMin: nextEnd };
           }),
         })),
       toggleImportant: (id) =>
@@ -373,12 +386,18 @@ export function dayShowsMark(
 }
 
 export function dayHasImportant(tasks: Task[], date: string) {
+  if (date < todayISO()) return false;
   return tasks.some((t) => t.date === date && t.important && t.status !== "done");
 }
 
 export function monthHasImportant(tasks: Task[], year: number, month: number) {
   const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const today = todayISO();
   return tasks.some(
-    (t) => t.important && t.status !== "done" && t.date.startsWith(prefix),
+    (t) =>
+      t.important &&
+      t.status !== "done" &&
+      t.date.startsWith(prefix) &&
+      t.date >= today,
   );
 }

@@ -79,19 +79,25 @@ function setPanelTilt(el: HTMLElement, lift: string, tiltX: string, tiltY: strin
   el.style.setProperty("--tilt-y", tiltY);
 }
 
-export function panelFloatProps(solo: boolean) {
+export function panelFloatProps(solo: boolean, liftPx = 18) {
+  const lift = `${liftPx}px`;
+  const tilt = liftPx > 0;
   return {
     onMouseEnter: (e: MouseEvent<HTMLElement>) => {
       if (solo) return;
-      setPanelTilt(e.currentTarget, "18px", "0deg", "0deg");
+      setPanelTilt(e.currentTarget, lift, "0deg", "0deg");
     },
     onMouseMove: (e: MouseEvent<HTMLElement>) => {
       if (solo) return;
       const el = e.currentTarget;
+      if (!tilt) {
+        setPanelTilt(el, lift, "0deg", "0deg");
+        return;
+      }
       const r = el.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
-      setPanelTilt(el, "18px", `${(-py * 6).toFixed(2)}deg`, `${(px * 8).toFixed(2)}deg`);
+      setPanelTilt(el, lift, `${(-py * 6).toFixed(2)}deg`, `${(px * 8).toFixed(2)}deg`);
     },
     onMouseLeave: (e: MouseEvent<HTMLElement>) => {
       setPanelTilt(e.currentTarget, "0px", "0deg", "0deg");

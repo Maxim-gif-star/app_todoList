@@ -1,5 +1,6 @@
 import { ExpandIcon, panelFloatProps } from "./chrome";
 import { useStore } from "./store";
+import { resolvePriority } from "./tags";
 import { formatStamp } from "./time";
 
 export function DoneTray() {
@@ -37,7 +38,7 @@ export function DoneTray() {
           <p className="empty">Пока тихо. Отметь дело слева — и оно мягко переедет сюда.</p>
         )}
         {done.map((t) => (
-          <article key={t.id} className={`done-card prio-${t.priority}`}>
+          <article key={t.id} className={`done-card prio-${resolvePriority(t.title, t.priority)}`}>
             <div>
               <h4>{t.title}</h4>
               <p>{t.completedAt ? formatStamp(t.completedAt) : ""}</p>

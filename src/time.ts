@@ -109,6 +109,13 @@ export function prettyDate(s: string) {
   return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
 }
 
+export function carryLabel(date: string) {
+  const today = todayISO();
+  if (date === addDays(today, -1)) return "вчера";
+  if (date === addDays(today, -2)) return "позавчера";
+  return prettyDate(date);
+}
+
 export function prettyMonth(s: string) {
   const d = parseISO(s);
   const month = MONTHS_GEN[d.getMonth()];

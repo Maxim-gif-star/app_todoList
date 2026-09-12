@@ -1,11 +1,15 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 
+app.setName("todoApp");
+app.setPath("userData", path.join(app.getPath("appData"), "noctis"));
+
 /** @type {BrowserWindow | null} */
 let win = null;
 
 function createWindow() {
   win = new BrowserWindow({
+    title: "todoApp",
     width: 1440,
     height: 900,
     minWidth: 1100,
@@ -14,6 +18,7 @@ function createWindow() {
     frame: false,
     show: false,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, "../build/icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,

@@ -1,9 +1,9 @@
 {
   "name": "noctis",
-  "productName": "Noctis",
+  "productName": "todoApp",
   "version": "0.1.0",
   "private": true,
-  "author": "Noctis",
+  "author": "todoApp",
   "description": "Интерактивная доска дел с тремя парящими окнами",
   "main": "electron/main.cjs",
   "scripts": {
@@ -14,30 +14,33 @@
   },
   "build": {
     "appId": "app.noctis.board",
-    "productName": "Noctis",
+    "productName": "todoApp",
     "files": [
       "dist",
-      "electron"
+      "electron",
+      "build/icon.ico"
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "asar": true,
     "win": {
+      "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "target": [
         "portable"
       ]
     },
     "portable": {
-      "artifactName": "Noctis.exe"
+      "artifactName": "todoApp.exe"
     },
     "nsis": {
       "oneClick": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Noctis",
-      "artifactName": "Noctis-Setup-${version}.exe"
+      "shortcutName": "todoApp",
+      "artifactName": "todoApp-Setup-${version}.exe"
     }
   },
   "dependencies": {

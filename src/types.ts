@@ -15,6 +15,7 @@ export interface Task {
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
+  originDate?: string;
 }
 
 export interface Draft {

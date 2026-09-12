@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ExpandIcon, panelFloatProps } from "./chrome";
 import { dayHasImportant, dayShowsMark, monthHasImportant, useStore } from "./store";
+import { resolvePriority } from "./tags";
 import { TaskEditor } from "./TaskEditor";
 import type { Draft, PlannerView } from "./types";
 import {
@@ -147,7 +148,7 @@ export function Planner() {
                 {plannedOn(d).map((t) => (
                   <div
                     key={t.id}
-                    className={`plan-item prio-${t.priority}`}
+                    className={`plan-item prio-${resolvePriority(t.title, t.priority)}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button

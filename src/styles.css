@@ -50,19 +50,21 @@ button {
 .app {
   height: 100%;
   display: grid;
-  grid-template-rows: 42px 1fr 28px;
+  grid-template-rows: 42px 1fr;
   position: relative;
   background: #000;
 }
 
 .titlebar {
-  z-index: 5;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 28px;
   -webkit-app-region: drag;
   user-select: none;
+  position: relative;
+  isolation: isolate;
 }
 
 .clock-line {
@@ -77,6 +79,9 @@ button {
   letter-spacing: 0.14em;
   line-height: 1;
   color: #fff;
+  text-shadow: 0 2px 10px #000, 0 0 12px #000;
+  position: relative;
+  z-index: 1;
 }
 
 .fs-btn,
@@ -114,7 +119,7 @@ button {
   grid-template-columns: 1.5fr 0.95fr;
   grid-template-rows: 1fr 1fr;
   gap: 28px;
-  padding: 14px 28px 18px;
+  padding: 8px 28px 8px;
   min-height: 0;
   perspective: 1600px;
   perspective-origin: 50% 42%;
@@ -176,6 +181,8 @@ button {
   --tilt-y: 0deg;
   --float-z: 28px;
   --pop: 1;
+  --rise: -14px;
+  --tilt-base: -2deg;
   position: relative;
   min-height: 0;
   display: flex;
@@ -183,8 +190,8 @@ button {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  transform: translateY(calc(-14px - var(--lift))) translateZ(var(--float-z))
-    rotateX(calc(-2deg + var(--tilt-x))) rotateY(var(--tilt-y)) scale(var(--pop));
+  transform: translateY(calc(var(--rise) - var(--lift))) translateZ(var(--float-z))
+    rotateX(calc(var(--tilt-base) + var(--tilt-x))) rotateY(var(--tilt-y)) scale(var(--pop));
   transform-style: preserve-3d;
   transform-origin: center center;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
@@ -201,7 +208,15 @@ button {
 }
 
 .board {
-  --float-z: 40px;
+  --float-z: 16px;
+  --rise: 0px;
+  --tilt-base: 0deg;
+}
+
+.panel.board:not(.is-solo):hover {
+  --pop: 1;
+  --lift: 0px;
+  z-index: 2;
 }
 
 .planner {
@@ -304,14 +319,6 @@ button {
   padding: 8px 16px;
   background: linear-gradient(180deg, #7b4bc4, #5a2f98);
   border: 1px solid rgba(210, 180, 255, 0.3);
-}
-
-.hint {
-  z-index: 2;
-  margin: 0;
-  text-align: center;
-  font-size: 11px;
-  color: rgba(186, 170, 210, 0.55);
 }
 
 .planner .panel-head,
@@ -531,13 +538,6 @@ button {
   box-shadow: 0 0 0 1.6px var(--burgundy), 0 0 12px rgba(122, 34, 48, 0.55);
 }
 
-.rail-hint {
-  margin: 10px 2px 0;
-  font-size: 10px;
-  line-height: 1.35;
-  color: var(--muted);
-}
-
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -650,6 +650,11 @@ button {
   background: rgba(var(--glow), 0.06);
 }
 
+.day-col.drop-on {
+  background: rgba(122, 34, 48, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(122, 34, 48, 0.45);
+}
+
 .slot.hour {
   border-top: 1px solid rgba(186, 150, 255, 0.1);
 }
@@ -677,10 +682,53 @@ button {
 }
 
 .task {
+  position: relative;
   border-radius: 12px;
-  padding: 6px 8px 7px;
+  padding: 6px 8px 7px 18px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
   overflow: hidden;
+  cursor: default;
+  -webkit-user-drag: none;
+}
+
+.task-grip {
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 22px;
+  display: grid;
+  grid-template-columns: 3px 3px;
+  justify-content: center;
+  align-content: center;
+  gap: 2px 2px;
+  opacity: 0;
+  pointer-events: none;
+  cursor: grab;
+  -webkit-user-drag: element;
+  z-index: 4;
+}
+
+.task-grip i {
+  display: block;
+  width: 3px;
+  height: 3px;
+  border-radius: 99px;
+  background: currentColor;
+  box-shadow: 0 5px 0 currentColor, 0 10px 0 currentColor;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.task:hover .task-grip,
+.task:focus-within .task-grip {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.task-grip:active {
+  cursor: grabbing;
 }
 
 .task.compact {
@@ -711,6 +759,14 @@ button {
 .task-time {
   margin: 2px 0 0 20px;
   font-size: 10px;
+  opacity: 0.8;
+}
+
+.task-carry {
+  margin: 1px 0 0 20px;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
   opacity: 0.8;
 }
 
